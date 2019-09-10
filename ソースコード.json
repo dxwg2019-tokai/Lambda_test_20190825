@@ -1,0 +1,104 @@
+// モジュール
+var aws = require('aws-sdk'); // AWS SDKモジュール
+//var momentTz = require('moment-timezone'); // moment-timezone.js用ライブラリ
+var docClient = new aws.DynamoDB.DocumentClient({region: 'ap-northeast-1'});
+
+ 
+/**
+* リクエストが送られてきたときのハンドラー
+*/
+exports.handler = function(req, context, callback) {
+ 
+    console.log("401 start.");
+    console.log("402 request : " + JSON.stringify(req));
+    console.log("403 context : " + JSON.stringify(context));
+    console.log("404 request-headers : " + req.headers);
+    console.log("405 request-body : " + JSON.stringify(req.body));
+ 
+    // リクエストのbodyをJSONにする
+    var body = req.body;
+    var sensor = JSON.parse(body);
+    if (sensor != null) {
+         // センサーデータの内容を表示
+         console.log("406 sensor - id : " + sensor["id"]); 
+         console.log("406 sensor - value : " + sensor["value"]); 
+         console.log("406 sensor - unit : " + sensor["unit"]); 
+         console.log("406 sensor - value01 : " + sensor["value01"]); 
+         console.log("406 sensor - value02 : " + sensor["value02"]); 
+         console.log("406 sensor - value03 : " + sensor["value03"]); 
+         console.log("406 sensor - datatype : " + sensor["datatype"]); 
+         console.log("406 sensor - unixtime : " + sensor["unixtime"]); 
+         console.log("406 sensor - dataid : " + sensor["dataid"]); 
+         console.log("406 sensor - packetid : " + sensor["packetid"]); 
+         console.log("406 sensor - rssi : " + sensor["rssi"]); 
+         console.log("406 sensor - battery : " + sensor["battery"]);
+ 
+         // データ項目のunixtimeをローカルタイム（JST）に変換
+         //console.log("406 moment-tomezone.js unixtime → JST : " + momentTz.unix(sensor["unixtime"], 'X').tz("Asia/Tokyo").format("YYYY-MM-DD HH:mm:ss"));
+         // DynamoDBに登録
+        registWebiotSensor(sensor);
+
+         }
+         else {
+                 // リクエストのBodyがない場合はエラー
+                 console.log("999 error! request body is null !!! ");
+                 console.error("999 request body is null !");
+         }
+ 
+         // レスポンス＆コールバック
+         const response = {
+         statusCode: 200,
+                 headers: {
+                         "Access-Control-Allow-Origin" : "https://s3-ap-northeast-1.amazonaws.com",
+                         "Access-Control-Allow-Credentials" : true, // Required for cookies, authorization headers with HTTPS 
+                         "Access-Control-Allow-Headers" : "Origin, X-Requested-With, Content-Type, Accept"
+                 },
+                 body: JSON.stringify({ "message": "lamdba function is callback!" })
+         };
+         callback(null, response);
+         console.log("499 end!");
+};
+
+/**
+* Webiotセンサー情報の登録
+*/
+var registWebiotSensor = function(sensor) {
+    console.log("501 [regist] start !");
+
+    // 登録するセンサー情報
+    var params = {
+        TableName : "test_20190829_dynamodb",
+        Item : {
+            "id" : sensor["id"],
+            "value" : Number(sensor["value"]),
+            "unit" : sensor["unit"],
+            "datatype" : sensor["datatype"],
+            "unixtime" : Number(sensor["unixtime"]),
+//            "sensortime" : momentTz.unix(sensor['unixtime'], 'X').tz('Asia/Tokyo').format('YYYY-MM-DD HH:mm:ss'),
+            "dataid" : sensor["dataid"],
+            "packetid" : sensor["packetid"],
+            "rssi" : Number(sensor["rssi"]),
+            "battery" : Number(sensor["battery"])
+        }
+    };
+
+    // 値が空文字の補完（DynamoDBが空文字を受け付けないための補完処理）
+    for (var key in params.Item) { 
+        for (var items in params.Item[key]) { 
+            var value = params.Item[key][items]; 
+            if (value === undefined || value === "") { 
+                value = "N/A"; 
+            }
+        } 
+    }
+
+    // センサー情報を登録
+    docClient.put(params, function(err, data) {
+        if (err) {
+            console.log("503 [regist] insert webiot_sensor faild. Error : ", JSON.stringify(err));
+        } else {
+            console.log("504 [regist] insert webiot_sensor success.", data);
+        }
+    });
+    console.log("599 [regist] end ! ");
+};
