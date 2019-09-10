@@ -102,3 +102,4 @@ var registWebiotSensor = function(sensor) {
     });
     console.log("599 [regist] end ! ");
 };
+//test
